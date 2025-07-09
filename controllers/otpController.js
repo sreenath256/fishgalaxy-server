@@ -34,7 +34,7 @@ const sendOTP = async (req, res) => {
       throw Error("Provide a mobile number");
     }
 
-    // Use E.164 format: +91xxxxxxxxxx
+    // Validate mobile number using E.164 format
     if (!/^\+?[1-9]\d{7,14}$/.test(mobile)) {
       throw Error("Invalid mobile number");
     }
@@ -45,11 +45,8 @@ const sendOTP = async (req, res) => {
       throw Error("Mobile number is not already registered");
     }
 
-    const existingOTP = await OTP.findOne({ mobile });
-
-    // if (existingOTP) {
-    //   throw Error("OTP already sent to this number");
-    // }
+    // 🔥 Delete any existing OTP before generating a new one
+    await OTP.deleteOne({ mobile });
 
     const otp = Math.floor(100000 + Math.random() * 900000);
 
@@ -58,7 +55,7 @@ const sendOTP = async (req, res) => {
     await client.messages.create({
       body: `Your OTP for Fish Galexy login is ${otp}. Please DO NOT share it with anyone to keep your account safe.`,
       from: process.env.TWILIO_PHONE_NUMBER,
-      to: mobile, // must be in format like +919876543210
+      to: mobile,
     });
 
     res.status(200).json({ success: true, message: "OTP sent successfully" });
@@ -68,10 +65,13 @@ const sendOTP = async (req, res) => {
   }
 };
 
+
+
 // Validating above OTP
 const validateOTP = async (req, res) => {
   const { mobile, otp } = req.body;
 
+  
   try {
     const data = await OTP.findOne({ mobile });
 
