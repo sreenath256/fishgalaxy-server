@@ -6,27 +6,34 @@ const { Schema } = mongoose;
 
 const UserSchema = new Schema(
   {
-    firstName: {
+    name: {
       type: String,
       required: true,
     },
-    lastName: {
+    shopName: {
       type: String,
+      required: true,
     },
     email: {
       type: String,
-      required: true,
       unique: true,
     },
-    password: {
-      type: String,
-    },
-    phoneNumber: {
+    mobile: {
       type: Number,
+      required: true,
+
     },
-    dateOfBirth: {
-      type: Date,
+    pincode: {
+      type: Number,
+      required: true,
+
     },
+    address: {
+      type: String,
+      required: true,
+
+    },
+
     role: {
       type: String,
       required: true,
@@ -39,13 +46,6 @@ const UserSchema = new Schema(
     profileImgURL: {
       type: String,
     },
-    profileImageURL: {
-      type: String,
-    },
-    isEmailVerified: {
-      type: Boolean,
-      required: true,
-    },
   },
   { timestamps: true }
 );
@@ -53,59 +53,47 @@ const UserSchema = new Schema(
 UserSchema.statics.signup = async function (
   userCredentials,
   role,
-  isEmailVerified
 ) {
-  const { email, password, passwordAgain, firstName, lastName } =
+  const { name, shopName, mobile, email, pincode, address } =
     userCredentials;
 
   if (
-    !firstName ||
-    !lastName ||
-    !email ||
-    !password ||
-    !passwordAgain ||
-    !role
+    !name ||
+    !shopName ||
+    !mobile ||
+    !pincode ||
+    !address
   ) {
     throw Error("All fields are required");
   }
 
-  if (firstName.trim() === "" || lastName.trim() === "") {
+  if (name.trim() === "" || shopName.trim() === "" || pincode.trim() === "" || address.trim() === "") {
     throw Error("All Fields are required");
   }
 
-  if (password !== passwordAgain) {
-    throw Error("Password is not match");
+  if (!validator.isMobilePhone(mobile)) {
+    throw Error("Mobile number is not valid");
   }
 
-  if (!validator.isEmail(email)) {
-    throw Error("Email is not valid");
-  }
-
-  if (!validator.isStrongPassword(password)) {
-    throw Error("Password is not strong enough");
-  }
 
   // Checking if the email is already registered.
-  const exists = await this.findOne({ email });
+  const exists = await this.findOne({ mobile });
   if (exists) {
-    throw Error("Email already in use");
+    throw Error("Mobile Number already in use");
   }
 
-  const salt = await bcrypt.genSalt(10);
-  const hash = await bcrypt.hash(password, salt);
+  
 
-  userCredentials["password"] = hash;
 
-  delete userCredentials["passwordAgain"];
+
+
 
   const user = await this.create({
     ...userCredentials,
     isActive: true,
     role,
-    isEmailVerified,
   });
 
-  user.password = "";
 
   return user;
 };

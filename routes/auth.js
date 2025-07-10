@@ -7,6 +7,8 @@ const {
   validateForgotOTP,
   newPassword,
   resentOTP,
+  sendOTPForRegister,
+  validateOTPRegister,
 } = require("../controllers/otpController");
 const { loginUsingGoogle } = require("../controllers/auth/google");
 const { signUpUser, loginUser } = require("../controllers/userController");
@@ -25,7 +27,9 @@ router.post("/forget-password-validate-otp", validateForgotOTP);
 router.post("/set-new-password", newPassword);
 // OTP
 router.post("/send-otp", sendOTP);
+router.post("/send-otp-register", sendOTPForRegister); // For registration OTP
 router.post("/validate-otp", validateOTP);
+router.post("/validate-otp-register", validateOTPRegister); // For registration OTP validation
 router.post("/resend-otp", resentOTP);
 
 module.exports = router;

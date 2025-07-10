@@ -7,11 +7,11 @@ const createToken = (_id) => {
 };
 
 const cookieConfig = {
-  secure: true,
   httpOnly: true,
-  maxAge: 1000 * 60 * 60 * 24,
+  secure: process.env.NODE_ENV === "production", // Only true in production
+  sameSite: "strict", // recommended for CSRF protection
+  maxAge: 1000 * 60 * 60 * 24, // 1 day
 };
-
 // To get user data on initial page load.
 const getUserDataFirst = async (req, res) => {
   try {
@@ -37,6 +37,7 @@ const getUserDataFirst = async (req, res) => {
 const signUpUser = async (req, res) => {
   try {
     let userCredentials = req.body;
+    console.log("User Credentials:", userCredentials);
 
     const profileImgURL = req?.file?.filename;
 
@@ -50,7 +51,7 @@ const signUpUser = async (req, res) => {
 
     res.cookie("user_token", token, cookieConfig);
 
-    res.status(200).json(user);
+    res.status(200).json({ user, success: true });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

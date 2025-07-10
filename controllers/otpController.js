@@ -11,13 +11,12 @@ const createToken = (_id) => {
 };
 
 
-
 const cookieConfig = {
-  secure: true,
   httpOnly: true,
-  maxAge: 1000 * 60 * 60 * 24,
+  secure: process.env.NODE_ENV === "production", // Only true in production
+  sameSite: "strict", // recommended for CSRF protection
+  maxAge: 1000 * 60 * 60 * 24, // 1 day
 };
-
 
 
 const client = new twilio(
@@ -67,11 +66,50 @@ const sendOTP = async (req, res) => {
 
 
 
+const sendOTPForRegister = async (req, res) => {
+  try {
+    const { mobile } = req.body;
+
+    if (!mobile) {
+      throw Error("Provide a mobile number");
+    }
+
+    // Validate mobile number using E.164 format
+    if (!/^\+?[1-9]\d{7,14}$/.test(mobile)) {
+      throw Error("Invalid mobile number");
+    }
+
+    const user = await User.findOne({ mobile });
+
+    if (user) {
+      throw Error("Mobile number is already registered");
+    }
+
+    // 🔥 Delete any existing OTP before generating a new one
+    await OTP.deleteOne({ mobile });
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+
+    await OTP.create({ mobile, otp });
+
+    await client.messages.create({
+      body: `Your OTP for Fish Galexy login is ${otp}. Please DO NOT share it with anyone to keep your account safe.`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: mobile,
+    });
+
+    res.status(200).json({ success: true, message: "OTP sent successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
 // Validating above OTP
 const validateOTP = async (req, res) => {
   const { mobile, otp } = req.body;
 
-  
+
   try {
     const data = await OTP.findOne({ mobile });
 
@@ -85,7 +123,7 @@ const validateOTP = async (req, res) => {
 
     const user = await User.findOne({ mobile });
 
-    
+
     if (!user) {
       throw Error("User not found");
     }
@@ -93,6 +131,42 @@ const validateOTP = async (req, res) => {
     const token = createToken(user._id);
 
     res.cookie("user_token", token, cookieConfig);
+
+    res.status(200).json({
+      success: true,
+      message: "OTP validation Success",
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const validateOTPRegister = async (req, res) => {
+  const { mobile, otp } = req.body;
+
+  console.log("Validating OTP for registration:", mobile, otp);
+
+  try {
+    const data = await OTP.findOne({ mobile });
+
+    console.log("OTP data found:", data);
+    console.log("Type of otp:", typeof otp);
+
+    if (!data) {
+      throw Error("OTP expired");
+    }
+
+    if (otp != data.otp) {
+      throw Error("OTP is not matched");
+    }
+
+    const user = await User.findOne({ mobile });
+
+
+    if (user) {
+      throw Error("Mobile number is already registered");
+    }
+
 
     res.status(200).json({
       success: true,
@@ -230,24 +304,28 @@ const newPassword = async (req, res) => {
 // Resending OTP incase the user doesn't receive the OTP
 const resentOTP = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { mobile } = req.body;
 
-    if (!email) {
-      throw Error("Email is required");
+    if (!mobile) {
+      throw Error("Mobile is required");
     }
 
-    if (!validator.isEmail(email)) {
-      throw Error("Invalid Email");
+    if (!validator.isMobilePhone(mobile)) {
+      throw Error("Invalid Mobile");
     }
 
-    const otpData = await OTP.findOne({ email });
+    const otpData = await OTP.findOne({ mobile });
 
     if (!otpData) {
-      throw Error("No OTP found in this email. Try again...");
+      throw Error("No OTP found in this mobile. Try again...");
     }
 
     if (otpData.otp) {
-      sendOTPMail(email, otpData.otp);
+      await client.messages.create({
+        body: `Your OTP for Fish Galexy login is ${otpData.otp}. Please DO NOT share it with anyone to keep your account safe.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: mobile,
+      });
     } else {
       throw Error("Cannot find OTP");
     }
@@ -265,4 +343,6 @@ module.exports = {
   validateForgotOTP,
   newPassword,
   resentOTP,
+  sendOTPForRegister,
+  validateOTPRegister
 };
