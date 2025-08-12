@@ -1,3 +1,4 @@
+const Cart = require("../../model/cartModel");
 const Product = require("../../model/productModel");
 const mongoose = require("mongoose");
 
@@ -11,13 +12,22 @@ const getProducts = async (req, res) => {
       limit = 10,
       startingDate,
       endingDate,
+      category
     } = req.query;
 
-    let filter = {};
+    let filter = {
+      isActive: true,
+    };
 
     if (status) {
       filter.status = status;
     }
+
+    if (category) {
+      filter.category = category;
+    }
+
+
     if (search) {
       filter.name = { $regex: new RegExp(search, "i") };
     }
@@ -37,6 +47,7 @@ const getProducts = async (req, res) => {
       attributes: 0,
       moreImageURL: 0,
     })
+      .sort({ createdAt: -1 }) // Sort by createdAt in descending order (newest first)
       .skip(skip)
       .limit(limit)
       .populate("category", { name: 1 });
@@ -73,23 +84,23 @@ const getProduct = async (req, res) => {
 // Creating new Product
 const addProduct = async (req, res) => {
   try {
+    console.log("Reached Data from fronend\n", req.body)
     let formData = { ...req.body, isActive: true };
     const files = req?.files;
 
-    const attributes = JSON.parse(formData.attributes);
-
-    formData.attributes = attributes;
+    console.log(files)
 
     if (files && files.length > 0) {
       formData.moreImageURL = [];
       formData.imageURL = "";
       files.map((file) => {
         if (file.fieldname === "imageURL") {
-          formData.imageURL = file.filename;
+          formData.imageURL = `${process.env.R2_PUBLIC_ENDPOINT}/${encodeURIComponent(file.key)}`; // ✅ store the URL
         } else {
-          formData.moreImageURL.push(file.filename);
+          formData.moreImageURL.push(`${process.env.R2_PUBLIC_ENDPOINT}/${encodeURIComponent(file.key)}`); // ✅ store URLs
         }
       });
+
     }
 
     const product = await Product.create(formData);
@@ -104,53 +115,50 @@ const addProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const formData = req.body;
-    console.log("Updation: ", formData);
+    let formData = req.body;
+
+
+    console.log("FormData ", formData)
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw Error("Invalid ID!!!");
     }
 
+    // Get the existing product first
+    const existingProduct = await Product.findById(id);
+    if (!existingProduct) {
+      throw Error("No Such Product");
+    }
+
     const files = req?.files;
 
     if (files && files.length > 0) {
-      formData.moreImageURL = [];
-      formData.imageURL = "";
-      files.map((file) => {
+      // Initialize arrays if they don't exist
+      formData.moreImageURL = existingProduct.moreImageURL || [];
+      formData.imageURL = existingProduct.imageURL || "";
+
+      files.forEach((file) => {
         if (file.fieldname === "imageURL") {
-          formData.imageURL = file.filename;
-        } else {
-          formData.moreImageURL.push(file.filename);
+          formData.imageURL = `${process.env.R2_PUBLIC_ENDPOINT}/${encodeURIComponent(file.key)}`;
+        } else if (file.fieldname === "moreImageURL") {
+          formData.moreImageURL.push(`${process.env.R2_PUBLIC_ENDPOINT}/${encodeURIComponent(file.key)}`);
         }
       });
 
+      // Clean up empty values
       if (formData.imageURL === "") {
         delete formData.imageURL;
       }
-
-      if (formData.moreImageURL.length === 0 || formData.moreImageURL === "") {
+      if (formData.moreImageURL.length === 0) {
         delete formData.moreImageURL;
       }
     }
 
-    if (formData.moreImageURL === "") {
-      formData.moreImageURL = [];
-    }
-
-    if (formData.attributes) {
-      const attributes = JSON.parse(formData.attributes);
-      formData.attributes = attributes;
-    }
-
     const product = await Product.findOneAndUpdate(
       { _id: id },
-      { $set: { ...formData } },
+      { $set: formData },
       { new: true }
     );
-
-    if (!product) {
-      throw Error("No Such Product");
-    }
 
     res.status(200).json({ product });
   } catch (error) {
@@ -167,13 +175,43 @@ const deleteProduct = async (req, res) => {
       throw Error("Invalid ID!!!");
     }
 
-    const product = await Product.findOneAndDelete({ _id: id });
+    // Start a transaction to ensure both operations succeed or fail together
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (!product) {
-      throw Error("No Such Product");
+    try {
+      // 1. Soft delete the product
+      const product = await Product.findOneAndUpdate(
+        { _id: id },
+        { $set: { isActive: false } },
+        { new: true, session } // Include session in the operation
+      );
+
+      if (!product) {
+        throw Error("No Such Product");
+      }
+
+      // 2. Remove the product from all carts
+      await Cart.updateMany(
+        { "items.product": id },
+        { $pull: { items: { product: id } } },
+        { session }
+      );
+
+      // Commit the transaction if both operations succeed
+      await session.commitTransaction();
+      session.endSession();
+
+      res.status(200).json({
+        message: "Product deactivated and removed from all carts successfully",
+        product
+      });
+    } catch (error) {
+      // If any operation fails, abort the transaction
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
     }
-
-    res.status(200).json({ product });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

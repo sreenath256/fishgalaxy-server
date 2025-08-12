@@ -7,36 +7,24 @@ const Counter = require("./counterModel");
 const { Schema } = mongoose;
 
 const AddressSchema = new Schema({
-  firstName: {
+  name: {
     type: String,
     required: true,
   },
-  lastName: {
+  shopName: {
     type: String,
     required: true,
-  },
-  companyName: {
-    type: String,
   },
   address: {
     type: String,
   },
-  country: {
-    type: String,
-  },
-  regionState: {
-    type: String,
-  },
-  city: {
-    type: String,
-  },
-  pinCode: {
+  pincode: {
     type: Number,
   },
   email: {
     type: String,
   },
-  phoneNumber: {
+  mobile: {
     type: String,
   },
   user: {
@@ -52,6 +40,9 @@ const ProductSchema = new Schema({
     ref: Product,
     required: true,
   },
+  name: {
+    type: String,
+  },
   quantity: {
     type: Number,
     required: true,
@@ -64,7 +55,7 @@ const ProductSchema = new Schema({
     type: Number,
     required: true,
   },
-  markup: {
+  offer: {
     type: Number,
     required: true,
   },
@@ -128,7 +119,7 @@ const OrderSchema = new Schema(
       default: "pending",
     },
     statusHistory: [StatusHistorySchema],
-    address: AddressSchema,
+
     deliveryDate: {
       type: Date,
       default: () => {
@@ -152,29 +143,12 @@ const OrderSchema = new Schema(
       required: true,
     },
     products: [ProductSchema],
-    paymentMode: {
-      type: String,
-      required: true,
-      enum: ["cashOnDelivery", "razorPay", "myWallet"],
-    },
+    address: AddressSchema,
     totalQuantity: {
       type: Number,
       min: 0,
     },
     notes: {
-      type: String,
-    },
-    coupon: {
-      type: Schema.Types.ObjectId,
-      ref: Coupon,
-    },
-    couponCode: {
-      type: String,
-    },
-    discount: {
-      type: Number,
-    },
-    couponType: {
       type: String,
     },
   },

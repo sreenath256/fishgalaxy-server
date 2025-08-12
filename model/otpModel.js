@@ -26,11 +26,11 @@ async function sendVerificationEmail(mobile, otp) {
   }
 }
 otpSchema.pre("save", async function (next) {
-  console.log("New document saved to the database");
+  console.log("New document saved to the database",this.otp);
 
-  if (this.isNew) {
-    await sendVerificationEmail(this.mobile, this.otp);
-  }
+  // if (this.isNew) {
+  //   await sendVerificationEmail(this.mobile, this.otp);
+  // }
   next();
 });
 

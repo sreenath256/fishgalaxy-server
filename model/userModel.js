@@ -4,55 +4,54 @@ const validator = require("validator");
 
 const { Schema } = mongoose;
 
-const UserSchema = new Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-    shopName: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      unique: true,
-    },
-    mobile: {
-      type: Number,
-      required: true,
+  const UserSchema = new Schema(
+    {
+      name: {
+        type: String,
+        required: true,
+      },
+      shopName: {
+        type: String,
+        required: true,
+      },
+      email: {
+        type: String,
+      },
+      mobile: {
+        type: Number,
+        required: true,
 
-    },
-    pincode: {
-      type: Number,
-      required: true,
+      },
+      pincode: {
+        type: Number,
+        required: true,
 
-    },
-    address: {
-      type: String,
-      required: true,
+      },
+      address: {
+        type: String,
+        required: true,
 
+      },
+      role: {
+        type: String,
+        required: true,
+        enum: ["user", "admin", "superAdmin"],
+      },
+      isActive: {
+        type: Boolean,
+        required: true,
+      },
+      profileImgURL: {
+        type: String,
+      },
     },
-
-    role: {
-      type: String,
-      required: true,
-      enum: ["user", "admin", "superAdmin"],
-    },
-    isActive: {
-      type: Boolean,
-      required: true,
-    },
-    profileImgURL: {
-      type: String,
-    },
-  },
-  { timestamps: true }
-);
+    { timestamps: true }
+  );
 
 UserSchema.statics.signup = async function (
   userCredentials,
   role,
+  status
 ) {
   const { name, shopName, mobile, email, pincode, address } =
     userCredentials;
@@ -90,7 +89,7 @@ UserSchema.statics.signup = async function (
 
   const user = await this.create({
     ...userCredentials,
-    isActive: true,
+    isActive: status,
     role,
   });
 

@@ -10,9 +10,6 @@ const productsSchema = new Schema(
     description: {
       type: String,
     },
-    stockQuantity: {
-      type: Number,
-    },
     category: {
       type: Schema.Types.ObjectId,
       ref: Category,
@@ -23,49 +20,33 @@ const productsSchema = new Schema(
     price: {
       type: Number,
     },
-    markup: {
+    offer: {
       type: Number,
     },
     status: {
       type: String,
       enum: [
-        "draft",
-        "published",
-        "out of stock",
-        "low quantity",
-        "unpublished",
+        "stocked",
+        "out of stock"
       ],
     },
-    attributes: [
-      {
-        name: {
-          type: String,
-        },
-        value: {
-          type: String,
-        },
-        isHighlight: {
-          type: Boolean,
-        },
-      },
-    ],
     moreImageURL: [
       {
         type: String,
       },
     ],
+    isLatestProduct: {
+      type: Boolean,
+      default: false,
+    },
+    isOfferProduct: {
+      type: Boolean,
+      default: false,
+    },
     isActive: {
       type: Boolean,
     },
-    rating: {
-      type: Number,
-    },
-    numberOfReviews: {
-      type: Number,
-    },
-    offer: {
-      type: Number,
-    },
+
   },
   { timestamps: true }
 );

@@ -57,10 +57,10 @@ const getCategory = async (req, res) => {
 const createCategory = async (req, res) => {
   try {
     let formData = req.body;
-    const imgURL = req?.file?.filename;
+    const imgURL = req?.file?.key;
 
     if (imgURL) {
-      formData = { ...formData, imgURL: imgURL };
+      formData = { ...formData, imgURL: `${process.env.R2_PUBLIC_ENDPOINT}/${encodeURIComponent(imgURL)}` };
     }
 
     const category = await Category.create(formData);
@@ -82,10 +82,10 @@ const updateCategory = async (req, res) => {
       throw Error("Invalid ID!!!");
     }
 
-    const imgURL = req?.file?.filename;
+    const imgURL = req?.file?.key;
 
     if (imgURL) {
-      formData = { ...formData, imgURL: imgURL };
+      formData = { ...formData, imgURL: `${process.env.R2_PUBLIC_ENDPOINT}/${encodeURIComponent(imgURL)}` };
     }
 
     const category = await Category.findOneAndUpdate(

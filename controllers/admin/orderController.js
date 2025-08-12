@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Payment = require("../../model/paymentModel");
 const uuid = require("uuid");
 const { generateInvoicePDF } = require("../Common/invoicePDFGenFunctions");
+const User = require("../../model/userModel");
 
 // Function checking if the passed status is valid or not. Ensuring redundant searches are avoided
 function isValidStatus(status) {
@@ -64,16 +65,17 @@ const getOrders = async (req, res) => {
 
     let filter = {};
 
-    // Date
+    // Date filtering
     if (startingDate) {
       const date = new Date(startingDate);
       filter.createdAt = { $gte: date };
     }
     if (endingDate) {
       const date = new Date(endingDate);
+      date.setHours(23, 59, 59, 999); // Include all times up to end of day
       filter.createdAt = { ...filter.createdAt, $lte: date };
     }
-
+    // Status filtering
     if (status) {
       if (!isValidStatus(status)) {
         throw Error("Not a valid status");
@@ -92,15 +94,31 @@ const getOrders = async (req, res) => {
       };
     }
 
+    // Search functionality
     if (search) {
       if (mongoose.Types.ObjectId.isValid(search)) {
+        // Case 1: Search by order ID (_id)
         filter._id = search;
       } else {
         const searchAsNumber = Number(search);
         if (!isNaN(searchAsNumber)) {
+          // Case 2: Search by orderId (number)
           filter.orderId = searchAsNumber;
         } else {
-          throw new Error("Please search using order Id");
+          // Case 3: Search by shopName or user name (case insensitive)
+          // Create a separate filter for text search
+          const textSearchFilter = {
+            $or: [
+              { "address.shopName": { $regex: search, $options: "i" } },
+              { "address.name": { $regex: search, $options: "i" } },
+              // Also search in user's name if populated
+              { "user.name": { $regex: search, $options: "i" } },
+              { "user.shopName": { $regex: search, $options: "i" } },
+            ],
+          };
+
+          // Combine with existing filters
+          filter = { ...filter, ...textSearchFilter };
         }
       }
     }
@@ -108,14 +126,12 @@ const getOrders = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const orders = await Order.find(filter, {
-      address: 0,
       statusHistory: 0,
-      products: { $slice: 1 },
     })
       .skip(skip)
       .limit(limit)
-      .populate("user", { firstName: 1, lastName: 1 })
-      .populate("products.productId", { imageURL: 1, name: 1 })
+      .populate("user", { name: 1, shopName: 1 })
+      .populate("products.productId")
       .sort({ createdAt: -1 });
 
     const totalAvailableOrders = await Order.countDocuments(filter);
@@ -137,7 +153,7 @@ const updateOrderStatus = async (req, res) => {
     } else {
       find.orderId = id;
     }
-    const { status, description, date, paymentStatus } = req.body;
+    const { status, description, date } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw Error("Invalid ID!!!");
@@ -172,30 +188,14 @@ const updateOrderStatus = async (req, res) => {
       throw Error("Something went wrong");
     }
 
-    if (paymentStatus === "yes") {
-      await Payment.create({
-        order: updated._id,
-        payment_id: `cod_${uuid.v4()}`,
-        user: updated.user,
-        status: "success",
-        paymentMode: "cashOnDelivery",
-      });
-    }
 
-    if (paymentStatus === "no") {
-      await Payment.create({
-        order: updated._id,
-        user: updated.user,
-        status: "pending",
-        paymentMode: "cashOnDelivery",
-      });
-    }
+
+
 
     const order = await Order.findOne(find, {
-      address: 0,
       products: { $slice: 1 },
     })
-      .populate("user", { firstName: 1, lastName: 1 })
+      .populate("user", { name: 1, shopName: 1 })
       .populate("products.productId", { imageURL: 1, name: 1 });
 
     res.status(200).json({ order });

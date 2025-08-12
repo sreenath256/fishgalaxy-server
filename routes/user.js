@@ -11,6 +11,8 @@ const {
   getProducts,
   getProduct,
   getAvailableQuantity,
+  getOfferProducts,
+  getLatestProducts,
 } = require("../controllers/user/productController");
 const {
   createOrder,
@@ -154,5 +156,11 @@ router.get("/order-review/:id", readOrderReview);
 
 // Category
 router.get("/categories", getCategories);
+
+// home page
+router.get("/offerProducts", getOfferProducts);
+router.get("/latestProducts", getLatestProducts);
+
+
 
 module.exports = router;

@@ -1,66 +1,83 @@
+const Category = require("../../model/categoryModel");
 const Product = require("../../model/productModel");
 const mongoose = require("mongoose");
 
 const getProducts = async (req, res) => {
   try {
-    const { category, price, search, sort, page = 1, limit = 4 } = req.query;
-
+    const { category, priceRange, search, sort, page = 1, limit = 15 ,isLatestProduct, isOfferProduct } = req.query;
     let filter = {};
-    if (category) filter.category = { $in: category.split(",") };
+
+    if (category) {
+      const categoryNames = category.split(",").map(name => name.trim());
+      const categories = await Category.find({
+        name: { $in: categoryNames.map(name => new RegExp(name, "i")) }
+      });
+
+      if (categories.length > 0) {
+        filter.category = { $in: categories.map(cat => cat._id) };
+      } else {
+        return res.status(200).json({ products: [], totalAvailableProducts: 0 });
+      }
+    }
+
     if (search) {
       filter.name = { $regex: new RegExp(search, "i") };
     }
-    if (price) {
-      if (price === "Under 25000") {
-        filter.price = { $lte: 25000 };
-      }
-      if (price === "25000-50000") {
-        filter.price = { $gte: 25000, $lte: 50000 };
-      }
-      if (price === "50000-100000") {
-        filter.price = { $gte: 50000, $lte: 100000 };
-      }
-      if (price === "100000-150000") {
-        filter.price = { $gte: 100000, $lte: 150000 };
-      }
-      if (price === "200000-300000") {
-        filter.price = { $gte: 200000, $lte: 300000 };
-      }
-      if (price === "Above 300000") {
-        filter.price = { $gte: 300000 };
-      }
+
+    if (priceRange) {
+      const [minPrice, maxPrice] = priceRange.split(',').map(Number);
+      filter.offer = {
+        $gte: minPrice,
+        $lte: maxPrice
+      };
+    }
+
+        // Boolean filters for special product types
+    if (isLatestProduct === 'true') {
+      filter.isLatestProduct = true;
+    }
+    
+    if (isOfferProduct === 'true') {
+      filter.isOfferProduct = true;
     }
 
     let sortOptions = {};
 
-    if (sort === "created-desc") {
-      sortOptions.createdAt = 1;
-    }
-
-    if (sort === "price-asc") {
-      sortOptions.price = 1;
-    }
-    if (sort === "price-desc") {
-      sortOptions.price = -1;
-    }
-    if (!sort) {
-      sortOptions.createdAt = -1;
+    switch (sort) {
+      case "price-asc":
+        sortOptions.offer = 1; // Price low to high
+        break;
+      case "price-desc":
+        sortOptions.offer = -1; // Price high to low
+        break;
+      case "latest":
+        // Show latest products first, then others
+        sortOptions = { isLatestProduct: -1, createdAt: -1 };
+        break;
+      case "offers":
+        // Show offer products first, then others
+        sortOptions = { isOfferProduct: -1, createdAt: -1 };
+        break;
+      default:
+        // Default sorting (newest first)
+        sortOptions = { createdAt: -1 };
     }
 
     const skip = (page - 1) * limit;
     const products = await Product.find(
       {
-        status: { $in: ["published", "low quantity"] },
+        status: { $in: ["stocked"] },
+        isActive: true,
         ...filter,
       },
       {
         name: 1,
         imageURL: 1,
-        price: 1,
-        markup: 1,
-        numberOfReviews: 1,
-        rating: 1,
         offer: 1,
+        price: 1,
+        description: 1,
+        isLatestProduct: 1,
+        isOfferProduct: 1
       }
     )
       .sort(sortOptions)
@@ -69,7 +86,8 @@ const getProducts = async (req, res) => {
       .populate("category", { name: 1 });
 
     const totalAvailableProducts = await Product.countDocuments({
-      status: { $in: ["published", "low quantity"] },
+      status: { $in: ["stocked"] },
+      isActive: true,
       ...filter,
     });
 
@@ -116,8 +134,69 @@ const getAvailableQuantity = async (req, res) => {
   }
 };
 
+const getOfferProducts = async (req, res) => {
+  try {
+    const products = await Product.find(
+      {
+        isActive: true,
+        isOfferProduct: true,
+        status: { $in: ["stocked"] },
+      },
+      {
+        name: 1,
+        imageURL: 1,
+        price: 1,
+        offer: 1,
+      }
+    )
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    const totalAvailableProducts = await Product.countDocuments({
+      status: { $in: ["stocked"] },
+      isOfferProduct: true,
+    });
+
+    res.status(200).json({ products, totalAvailableProducts });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+const getLatestProducts = async (req, res) => {
+  try {
+
+    const products = await Product.find(
+      {
+        isLatestProduct: true,
+        isActive: true,
+        status: { $in: ["stocked"] },
+      },
+      {
+        name: 1,
+        imageURL: 1,
+        price: 1,
+        offer: 1,
+      }
+    )
+
+
+    const totalAvailableProducts = await Product.countDocuments({
+      status: { $in: ["stocked"] },
+      isLatestProduct: true,
+    }).limit(10)
+
+    res.status(200).json({ products, totalAvailableProducts });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
 module.exports = {
   getProducts,
   getProduct,
   getAvailableQuantity,
+  getOfferProducts,
+  getLatestProducts
 };

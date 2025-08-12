@@ -18,7 +18,7 @@ const getCart = async (req, res) => {
         name: 1,
         imageURL: 1,
         price: 1,
-        markup: 1,
+        offer: 1,
       })
       .sort({ createdAt: -1 });
 
@@ -128,15 +128,16 @@ const deleteOneProduct = async (req, res) => {
 
     const updatedCart = await Cart.findByIdAndUpdate(cartId, {
       $pull: {
-        items: { product: productId },
+        items: { _id: productId },
       },
-    });
+
+    }, { new: true });
+
 
     if (!updatedCart) {
       throw Error("Invalid Product");
     }
 
-    console.log(updatedCart);
 
     res.status(200).json({ productId });
   } catch (error) {
@@ -147,6 +148,8 @@ const deleteOneProduct = async (req, res) => {
 const incrementQuantity = async (req, res) => {
   try {
     const { cartId, productId } = req.params;
+
+    
 
     let cart = await Cart.findOne({ _id: cartId });
 

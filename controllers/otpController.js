@@ -39,11 +39,16 @@ const sendOTP = async (req, res) => {
     }
 
     const user = await User.findOne({ mobile });
+    console.log("User found:", user, mobile);
 
+    
     if (!user) {
-      throw Error("Mobile number is not already registered");
+      throw Error("Mobile number is not registered");
     }
-
+    
+    if (user.isActive === false) {
+      throw Error("Your account is not activated. Please contact support.");
+    }
     // 🔥 Delete any existing OTP before generating a new one
     await OTP.deleteOne({ mobile });
 
@@ -131,6 +136,33 @@ const validateOTP = async (req, res) => {
     const token = createToken(user._id);
 
     res.cookie("user_token", token, cookieConfig);
+
+    res.status(200).json({
+      success: true,
+      message: "OTP validation Success",
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+
+const validateOTPMobileChange = async (req, res) => {
+  const { mobile, otp } = req.body;
+
+
+  try {
+    const data = await OTP.findOne({ mobile });
+
+    if (!data) {
+      throw Error("OTP expired");
+    }
+
+    if (otp !== data.otp) {
+      throw Error("OTP is not matched");
+    }
+
+  
 
     res.status(200).json({
       success: true,
@@ -344,5 +376,6 @@ module.exports = {
   newPassword,
   resentOTP,
   sendOTPForRegister,
-  validateOTPRegister
+  validateOTPRegister,
+  validateOTPMobileChange
 };

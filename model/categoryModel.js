@@ -8,9 +8,6 @@ const CategorySchema = new Schema(
       type: String,
       required: true,
     },
-    description: {
-      type: String,
-    },
     imgURL: {
       type: String,
     },

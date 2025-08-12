@@ -8,8 +8,7 @@ const getCustomers = async (req, res) => {
       search,
       page = 1,
       limit = 10,
-      startingDate,
-      endingDate,
+
     } = req.query;
 
     let filter = {};
@@ -23,39 +22,29 @@ const getCustomers = async (req, res) => {
     }
 
     if (search) {
-      if (search.includes(" ")) {
-        const [firstName, lastName] = search.split(" ");
-        filter.firstName = { $regex: new RegExp(firstName, "i") };
-        filter.lastName = { $regex: new RegExp(lastName, "i") };
-      } else {
-        filter.$or = [
-          { firstName: { $regex: new RegExp(search, "i") } },
-          { lastName: { $regex: new RegExp(search, "i") } },
-        ];
-      }
+      const regex = new RegExp(search, "i"); // case-insensitive
+
+      const isNumber = !isNaN(search); // check if search is numeric
+
+      filter.$or = [
+        { name: { $regex: regex } },
+        { shopName: { $regex: regex } },
+        { email: { $regex: regex } },
+        ...(isNumber ? [
+          { mobile: Number(search) },
+          { pincode: Number(search) }
+        ] : [])
+      ];
     }
-    // Date
-    if (startingDate) {
-      const date = new Date(startingDate);
-      filter.createdAt = { $gte: date };
-    }
-    if (endingDate) {
-      const date = new Date(endingDate);
-      filter.createdAt = { ...filter.createdAt, $lte: date };
-    }
+
+
 
     const skip = (page - 1) * limit;
 
     // Getting all users
     const customers = await User.find(
       { role: "user", ...filter },
-      {
-        password: 0,
-        dateOfBirth: 0,
-        role: 0,
-        walletBalance: 0,
-        isEmailVerified: 0,
-      }
+
     )
       .skip(skip)
       .limit(limit)

@@ -10,6 +10,10 @@ const Wallet = require("../../model/walletModel");
 const Coupon = require("../../model/couponModel");
 const { generateInvoicePDF } = require("../Common/invoicePDFGenFunctions");
 const Counter = require("../../model/counterModel");
+const User = require("../../model/userModel");
+const { generateInvoice } = require("../Common/generateInvoice");
+const uploadToR2 = require("../Common/uploadToR2");
+const { sendWhatsAppInvoice } = require("../Common/whatsappService");
 
 // Just the function increment or decrement product count
 const updateProductList = async (id, count) => {
@@ -54,6 +58,7 @@ const updateProductList = async (id, count) => {
 // Creating an order
 const createOrder = async (req, res) => {
   try {
+
     const token = req.cookies.user_token;
 
     const { _id } = jwt.verify(token, process.env.SECRET);
@@ -62,66 +67,70 @@ const createOrder = async (req, res) => {
       throw Error("Invalid ID!!!");
     }
 
-    const { address, paymentMode, notes } = req.body;
+    // Fetch user data
+    const user = await User.findById(_id);
 
-    const addressData = await Address.findOne({ _id: address });
+    if (!user) {
+      throw Error("No user found.");
+    }
+
+    const address = {
+      name: user.name,
+      shopName: user.shopName,
+      address: user.address,
+      pincode: user.pincode,
+      email: user.email,
+      mobile: user.mobile,
+      user: _id
+    }
+
+
 
     const cart = await Cart.findOne({ user: _id }).populate("items.product", {
       name: 1,
       price: 1,
-      markup: 1,
+      offer: 1,
     });
 
     let sum = 0;
     let totalQuantity = 0;
 
     cart.items.map((item) => {
-      sum = sum + (item.product.price + item.product.markup) * item.quantity;
+      sum = sum + (item.product.offer) * item.quantity;
       totalQuantity = totalQuantity + item.quantity;
     });
 
-    let sumWithTax = parseInt(sum + sum * 0.08);
-    if (cart.discount && cart.type === "percentage") {
-      const discountAmount = (sum * cart.discount) / 100;
-      sumWithTax -= discountAmount;
-    } else if (cart.discount && cart.type === "fixed") {
-      sumWithTax -= cart.discount;
-    }
+    let sumWithTax = parseInt(sum + sum * 0.00);
 
-    const products = cart.items.map((item) => ({
+
+    const products = cart?.items.map((item) => ({
       productId: item.product._id,
+      name: item.product.name, // Add product name here
       quantity: item.quantity,
-      totalPrice: item.product.price + item.product.markup,
+      totalPrice: item.product.offer * item.quantity,
       price: item.product.price,
-      markup: item.product.markup,
+      offer: item.product.offer,
     }));
 
     let orderData = {
       user: _id,
-      address: addressData,
+      address,
       products: products,
       subTotal: sum,
-      tax: parseInt(sum * 0.08),
+      tax: parseInt(sum * 0.00),
       totalPrice: sumWithTax,
-      paymentMode,
       totalQuantity,
       statusHistory: [
         {
           status: "pending",
         },
       ],
-      ...(notes ? notes : {}),
-      ...(cart.coupon ? { coupon: cart.coupon } : {}),
-      ...(cart.couponCode ? { couponCode: cart.couponCode } : {}),
-      ...(cart.discount ? { discount: cart.discount } : {}),
-      ...(cart.type ? { couponType: cart.type } : {}),
+
     };
 
-    const updateProductPromises = products.map((item) => {
-      return updateProductList(item.productId, -item.quantity);
-    });
 
-    await Promise.all(updateProductPromises);
+
+
 
     const order = await Order.create(orderData);
 
@@ -129,67 +138,18 @@ const createOrder = async (req, res) => {
       await Cart.findByIdAndDelete(cart._id);
     }
 
-    // When payment is done using wallet reducing the wallet and creating payment
-    if (paymentMode === "myWallet") {
-      let counter = await Counter.findOne({
-        model: "Wallet",
-        field: "transaction_id",
-      });
 
-      // Checking if order counter already exist
-      if (counter) {
-        counter.count += 1;
-        await counter.save();
-      } else {
-        counter = await Counter.create({
-          model: "Wallet",
-          field: "transaction_id",
-        });
-      }
+    // Generate PDF invoice
+    const pdfPath = await generateInvoice(order, user);
 
-      const exists = await Wallet.findOne({ user: _id });
-      if (!exists) {
-        throw Error("No Wallet where found");
-      }
+    const pdfUrl = await uploadToR2(pdfPath, `invoice_${order._id}.pdf`);
 
-      await Payment.create({
-        order: order._id,
-        payment_id: `wallet_${uuid.v4()}`,
-        user: _id,
-        status: "success",
-        paymentMode: "myWallet",
-      });
+    await sendWhatsAppInvoice(user.mobile, pdfUrl, order);
 
-      let wallet = {};
-      if (exists) {
-        wallet = await Wallet.findByIdAndUpdate(exists._id, {
-          $inc: {
-            balance: -sumWithTax,
-          },
-          $push: {
-            transactions: {
-              transaction_id: counter.count + 1,
-              amount: sumWithTax,
-              type: "debit",
-              description: "Product Ordered",
-              order: order._id,
-            },
-          },
-        });
-      }
-    }
-
-    if (cart.coupon) {
-      await Coupon.findOneAndUpdate(
-        { _id: cart.coupon },
-        {
-          $inc: { used: 1 },
-        }
-      );
-    }
 
     res.status(200).json({ order });
   } catch (error) {
+    console.log(error)
     res.status(400).json({ error: error.message });
   }
 };
@@ -212,17 +172,20 @@ const getOrders = async (req, res) => {
     const orders = await Order.find(
       { user: _id },
       {
-        address: 0,
-        paymentMode: 0,
-        deliveryDate: 0,
-        user: 0,
-        statusHistory: 0,
-        products: { $slice: 1 },
+        // address: 0,
+        // paymentMode: 0,
+        // deliveryDate: 0,
+        // user: 0,
+        // statusHistory: 0,
+        // products: { $slice: 1 },
       }
     )
       .skip(skip)
       .limit(limit)
-      .populate("products.productId", { name: 1 })
+      .populate("products.productId",
+        { name: 1, imageURL: 1 },
+
+      )
       .sort({ createdAt: -1 });
 
     const totalAvailableOrders = await Order.countDocuments({ user: _id });

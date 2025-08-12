@@ -45,11 +45,11 @@ const signUpUser = async (req, res) => {
       userCredentials = { ...userCredentials, profileImgURL: profileImgURL };
     }
 
-    const user = await User.signup(userCredentials, "user", true);
+    const user = await User.signup(userCredentials, "user", false);
 
     const token = createToken(user._id);
 
-    res.cookie("user_token", token, cookieConfig);
+    // res.cookie("user_token", token, cookieConfig);
 
     res.status(200).json({ user, success: true });
   } catch (error) {
@@ -91,10 +91,11 @@ const editUser = async (req, res) => {
 
     let formData = req.body;
 
-    const profileImgURL = req?.file?.filename;
+    const profileImgURL = req?.file;
 
     if (profileImgURL) {
-      formData = { ...formData, profileImgURL: profileImgURL };
+      console.log("Profile image URL:", profileImgURL);
+      formData = { ...formData, profileImgURL: `${process.env.R2_PUBLIC_ENDPOINT}/${encodeURIComponent(profileImgURL.key)}` };
     }
 
     const updatedUser = await User.findOneAndUpdate(
