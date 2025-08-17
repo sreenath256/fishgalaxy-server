@@ -7,30 +7,27 @@ const client = twilio(accountSid, authToken);
 
 async function sendWhatsAppInvoice(recipientPhone, pdfUrl, order) {
     try {
-
-        // Convert to string if it isn't already
+        // Format number
         const phoneString = String(recipientPhone);
-
-        // Format number (remove non-digits and add whatsapp prefix)
         const toNumber = `whatsapp:+${phoneString.replace(/\D/g, '')}`;
+        const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER;
 
-        const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER; // Your Twilio WhatsApp number
+        console.log("PDF Link", pdfUrl);
 
-        console.log("PDF Link", pdfUrl)
-
-        // Send message
+        // Use the template
         const message = await client.messages.create({
-            body: `📄 *Invoice #${order._id}*\n\n` +
-                `Dear ${order.address.name},\n\n` +
-                `Your order is confirmed!\n` +
-                `Total: ₹${order.totalPrice.toFixed(2)}\n\n` +
-                `Thank you for your business!`,
-            mediaUrl: [pdfUrl],
             from: fromNumber,
-            to: toNumber
+            to: toNumber,
+            contentSid: "HX926c07c1eb333a2dc8b96c7b4dab4f41", // your template SID from Twilio
+            contentVariables: JSON.stringify({
+                "1": String(order.address.name),   // Dear {{1}}
+                "2": String(order._id),           // Order ID: {{2}}
+                "3": String(order.totalPrice)     // Total: ₹{{3}}
+            }),
+            mediaUrl: [pdfUrl]  // attach PDF
         });
 
-        console.log(`WhatsApp message sent to ${toNumber}: ${message.sid}`);
+        console.log(`WhatsApp template message sent to ${toNumber}: ${message.sid}`);
         return message;
     } catch (error) {
         console.error('WhatsApp send error:', error);

@@ -9,9 +9,11 @@ const createToken = (_id) => {
 const cookieConfig = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production", // Only true in production
+  // sameSite: "none", // recommended for CSRF protection
   sameSite: "strict", // recommended for CSRF protection
-  maxAge: 1000 * 60 * 60 * 24, // 1 day
 };
+
+
 // To get user data on initial page load.
 const getUserDataFirst = async (req, res) => {
   try {
@@ -74,7 +76,12 @@ const loginUser = async (req, res) => {
 };
 
 const logoutUser = async (req, res) => {
-  res.clearCookie("user_token");
+  res.cookie("user_token", token, {
+    httpOnly: true,
+    secure: true, // only over HTTPS
+    sameSite: "None",
+    path: "/",
+  });
 
   res.status(200).json({ msg: "Logged out Successfully" });
 };
