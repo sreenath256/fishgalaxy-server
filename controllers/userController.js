@@ -11,6 +11,8 @@ const cookieConfig = {
   secure: process.env.NODE_ENV === "production", // Only true in production
   // sameSite: "none", // recommended for CSRF protection
   sameSite: "strict", // recommended for CSRF protection
+  maxAge: 1000 * 60 * 60 * 24, // 1 day
+
 };
 
 
