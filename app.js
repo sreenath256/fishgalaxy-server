@@ -39,6 +39,7 @@ const authRoutes = require("./routes/auth");
 // Auth middleware
 
 const { requireAuth, requireAdminAuth } = require("./middleware/requireAuth");
+const Products = require("./model/productModel");
 
 // Mounting the routes
 app.use("/api/auth", authRoutes);
@@ -46,6 +47,19 @@ app.use("/api/user", requireAuth, userRoutes);
 app.use("/api/admin", requireAdminAuth, adminRoutes);
 app.use("/api/super-admin", requireAdminAuth, superAdminRoutes);
 app.use("/api/public", publicRoutes);
+
+app.delete("/inactive", async (req, res) => {
+  try {
+    const result = await Products.deleteMany({ isActive: false });
+
+    res.json({
+      success: true,
+      message: `${result.deletedCount} inactive products deleted`,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Public Api for accessing images
 app.use("/api/img", express.static(__dirname + "/public/products/"));

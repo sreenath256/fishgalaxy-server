@@ -1,5 +1,6 @@
 const Category = require("../../model/categoryModel");
 const mongoose = require("mongoose");
+const Product = require("../../model/productModel");
 
 // Getting all Categories to list on admin dashboard
 const getCategories = async (req, res) => {
@@ -103,7 +104,6 @@ const updateCategory = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-
 const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -112,6 +112,28 @@ const deleteCategory = async (req, res) => {
       throw Error("Invalid ID!!!");
     }
 
+    // Find products under this category
+    const products = await Product.find({ category: id });
+
+    let uncategorizedCategory = await Category.findOne({ name: "Uncategorized" });
+
+    // If "Uncategorized" category doesn't exist, create it
+    if (!uncategorizedCategory) {
+      uncategorizedCategory = await Category.create({
+        name: "Uncategorized",
+        isActive: true,
+      });
+    }
+
+    // Move products to "Uncategorized" category
+    if (products.length > 0) {
+      await Product.updateMany(
+        { category: id },
+        { $set: { category: uncategorizedCategory._id } }
+      );
+    }
+
+    // Delete the category
     const category = await Category.findOneAndDelete({ _id: id });
 
     if (!category) {

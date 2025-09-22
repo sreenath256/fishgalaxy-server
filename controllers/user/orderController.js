@@ -14,6 +14,7 @@ const User = require("../../model/userModel");
 const { generateInvoice } = require("../Common/generateInvoice");
 const uploadToR2 = require("../Common/uploadToR2");
 const { sendWhatsAppInvoice } = require("../Common/whatsappService");
+const { sendOrderDetailsMail } = require("../../util/mailFunction");
 
 // Just the function increment or decrement product count
 const updateProductList = async (id, count) => {
@@ -134,17 +135,37 @@ const createOrder = async (req, res) => {
 
     const order = await Order.create(orderData);
 
+
     if (order) {
       await Cart.findByIdAndDelete(cart._id);
     }
-
 
     // Generate PDF invoice
     const pdfPath = await generateInvoice(order, user);
 
     const pdfUrl = await uploadToR2(pdfPath, `invoice_${order._id}.pdf`);
 
-    await sendWhatsAppInvoice(user.mobile, pdfUrl, order);
+    // await sendWhatsAppInvoice(user.mobile, pdfUrl, order);
+
+
+    if (order) {
+      try {
+        const order2 = await Order.findById(order._id).populate("products.productId user");
+
+
+        const pdfBuffer = await generateInvoicePDF(order2);
+        console.log("PDFpath", pdfPath)
+        console.log("pdfBuffer", pdfBuffer)
+
+        // Email with invoice PDF
+        sendOrderDetailsMail(user.email, order2, pdfPath);
+
+      } catch (err) {
+        console.log("Error while sending invoice", err);
+      }
+
+    }
+
 
 
     res.status(200).json({ order });

@@ -45,13 +45,13 @@ const generateInvoicePDF = async (order) => {
 
       // Header for the PDF
       doc
-        .image("public/official/logo.png", 50, 45, { width: 50 })
+        // .image("public/official/logo.png", 50, 45, { width: 50 })
         .fillColor("#444444")
         .fontSize(20)
-        .text("ex.iphones Inc.", 110, 65)
+        .text("Fish Galaxy.", 110, 65)
         .fontSize(10)
-        .text("7th Avenue, Sector 801", 200, 65, { align: "right" })
-        .text("Calicut, Kerala, IN", 200, 80, { align: "right" })
+        // .text("7th Avenue, Sector 801", 200, 65, { align: "right" })
+        // .text("Calicut, Kerala, IN", 200, 80, { align: "right" })
         .moveDown();
 
       // Invoice details section

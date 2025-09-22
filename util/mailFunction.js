@@ -1,10 +1,10 @@
 const mailSender = require("./mailSender");
 
 const sendOTPMail = async (email, otp) => {
-  const mailResponse = await mailSender(
-    email,
-    "Email Verification",
-    `<!DOCTYPE html>
+    const mailResponse = await mailSender(
+        email,
+        "Email Verification",
+        `<!DOCTYPE html>
     <html lang="en">
     
     <head>
@@ -100,15 +100,15 @@ const sendOTPMail = async (email, otp) => {
     </html>
     
     `
-  );
-  console.log("Email sent successfully: ", mailResponse);
+    );
+    console.log("Email sent successfully: ", mailResponse);
 };
 
 const passwordChangedMail = async (email) => {
-  const mailResponse = await mailSender(
-    email,
-    "Email Verification",
-    `<!DOCTYPE html>
+    const mailResponse = await mailSender(
+        email,
+        "Email Verification",
+        `<!DOCTYPE html>
     <html lang="en">
     
     <head>
@@ -187,8 +187,150 @@ const passwordChangedMail = async (email) => {
     </body>
     
     </html>`
-  );
-  console.log("Email sent successfully: ", mailResponse);
+    );
+    console.log("Email sent successfully: ", mailResponse);
 };
 
-module.exports = { sendOTPMail, passwordChangedMail };
+
+
+
+const sendOrderDetailsMail = async (email, order, pdfBuffer) => {
+    const mailResponse = await mailSender(
+        email,
+        "Order Confirmation & Invoice",
+        `<!DOCTYPE html>
+      <html lang="en">
+      
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Order Details & Invoice</title>
+          <style>
+              body {
+                  font-family: Arial, sans-serif;
+                  background-color: #f4f4f4;
+                  margin: 0;
+                  padding: 0;
+              }
+  
+              h2 {
+                  font-weight: 500;
+                  color: #6b7280;
+              }
+      
+              .container {
+                  max-width: 600px;
+                  margin: 0 auto;
+                  background-color: #ffffff;
+                  padding: 40px;
+                  border-radius: 10px;
+                  box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.1);
+              }
+      
+              .header {
+                  background-color: #4caf50;
+                  color: #ffffff;
+                  padding: 10px 20px;
+                  border-radius: 5px;
+                  text-align: left;
+              }
+      
+              .order-details {
+                  margin-top: 20px;
+                  font-size: 16px;
+                  color: #333;
+                  text-align: left;
+              }
+  
+              .order-table {
+                  width: 100%;
+                  margin-top: 20px;
+                  border-collapse: collapse;
+                  text-align: left;
+              }
+  
+              .order-table th, .order-table td {
+                  border: 1px solid #ddd;
+                  padding: 8px;
+              }
+  
+              .order-table th {
+                  background-color: #f9f9f9;
+                  font-weight: bold;
+              }
+      
+              .footer {
+                  margin-top: 30px;
+                  font-size: 14px;
+                  color: #555;
+                  text-align: left;
+              }
+  
+              .invoice-link {
+                  margin-top: 20px;
+                  display: inline-block;
+                  background-color: #4caf50;
+                  color: #ffffff;
+                  padding: 10px 20px;
+                  border-radius: 5px;
+                  text-decoration: none;
+                  font-size: 16px;
+              }
+          </style>
+      </head>
+      
+      <body>
+          <div class="container">
+              <h2>Fish Galaxy</h2>
+              <div class="header">
+                  <h1>Order Confirmation & Invoice</h1>
+              </div>
+              <div class="order-details">
+                  <p>Dear ${order.address.name},</p>
+                  <p>Thank you for your order. Here are the details of your purchase:</p>
+                  <table class="order-table">
+                      <thead>
+                          <tr>
+                              <th>Product</th>
+                              <th>Quantity</th>
+                              <th>Price</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          ${order.products.map(product => `
+                              <tr>
+                                  <td>${product.productId.name}</td>
+                                  <td>${product.quantity}</td>
+                                  <td>${product.offer}</td>
+                              </tr>
+                          `).join('')}
+                      </tbody>
+                      <tfoot>
+                          <tr>
+                              <td colspan="2"><strong>Total</strong></td>
+                              <td><strong>${order.totalPrice}</strong></td>
+                          </tr>
+                      </tfoot>
+                  </table>
+                <p>Your invoice has been attached to this email.</p>
+              </div>
+              <div class="footer">
+                  <p>Best regards,</p>
+                  <p>Fish Galaxy</p>
+                  <p>&copy; 2025 Fish Galaxy. All rights reserved.</p>
+              </div>
+          </div>
+      </body>
+      
+      </html>`,
+
+        {
+            filename: `invoice-${order._id}.pdf`,
+            path: pdfBuffer,  // 👈 use path instead of content            
+            contentType: 'application/pdf'
+        }
+    );
+    console.log("Order details email sent successfully: ", mailResponse);
+};
+
+module.exports = { sendOTPMail, passwordChangedMail, sendOrderDetailsMail };

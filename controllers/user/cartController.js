@@ -53,17 +53,15 @@ const addToCart = async (req, res) => {
 
       if (existingProductIndex !== -1) {
         // Checking if the product quantity exists or not
-        if (
-          product.stockQuantity < exists.items[existingProductIndex].quantity
-        ) {
+        if (product.stockQuantity < items.quantity) {
           throw Error("Not enough Quantity");
         }
 
         cart = await Cart.findOneAndUpdate(
           { "items.product": items.product, user: _id },
           {
-            $inc: {
-              "items.$.quantity": items.quantity,
+            $set: {
+              "items.$.quantity": items.quantity, // replace instead of increment
             },
           },
           { new: true }
@@ -149,7 +147,7 @@ const incrementQuantity = async (req, res) => {
   try {
     const { cartId, productId } = req.params;
 
-    
+
 
     let cart = await Cart.findOne({ _id: cartId });
 
