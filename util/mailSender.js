@@ -42,7 +42,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const mailSender = async (email, title, body, attachment) => {
   try {
     const options = {
-      from: "Fish Galaxy <onboarding@resend.dev>", 
+      from: "Fish Galaxy <no-reply@fishgalaxy.in>", 
       // 👆 Replace with your verified sender (domain or sandbox)
       to: email,
       subject: title,
