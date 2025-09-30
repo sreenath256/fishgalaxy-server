@@ -47,10 +47,11 @@ const getProducts = async (req, res) => {
       attributes: 0,
       moreImageURL: 0,
     })
-      .sort({ createdAt: -1 }) // Sort by createdAt in descending order (newest first)
+      .sort({ category: 1, createdAt: -1 }) // Group by category first, then sort newest inside
       .skip(skip)
       .limit(limit)
       .populate("category", { name: 1 });
+
 
     const totalAvailableProducts = await Product.countDocuments(filter);
 
