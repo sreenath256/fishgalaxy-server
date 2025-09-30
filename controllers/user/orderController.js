@@ -158,7 +158,8 @@ const createOrder = async (req, res) => {
         console.log("pdfBuffer", pdfBuffer)
 
         // Email with invoice PDF
-        sendOrderDetailsMail(user.email, order2, pdfPath);
+        sendOrderDetailsMail(user.email, order2, pdfUrl);
+        sendOrderDetailsMail(process.env.ADMINMAIL, order2, pdfUrl);
 
       } catch (err) {
         console.log("Error while sending invoice", err);
