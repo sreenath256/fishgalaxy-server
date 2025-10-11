@@ -4,14 +4,24 @@ const mongoose = require("mongoose");
 
 const getProducts = async (req, res) => {
   try {
-    const { category, priceRange, search, sort, page = 1, limit = 15 ,isLatestProduct, isOfferProduct } = req.query;
+    const { category, priceRange, search, sort, page = 1, limit = 15, isLatestProduct, isOfferProduct } = req.query;
     let filter = {};
 
     if (category) {
       const categoryNames = category.split(",").map(name => name.trim());
+      console.log("Received category:", categoryNames);
+
+      // Escape regex special characters
+      const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      // Build regex array that supports both exact and partial match
+      const regexArray = categoryNames.map(name => new RegExp(escapeRegex(name), "i"));
+
       const categories = await Category.find({
-        name: { $in: categoryNames.map(name => new RegExp(name, "i")) }
+        name: { $in: regexArray }
       });
+
+      console.log("Matched categories:", categories.map(c => c.name));
 
       if (categories.length > 0) {
         filter.category = { $in: categories.map(cat => cat._id) };
@@ -19,6 +29,8 @@ const getProducts = async (req, res) => {
         return res.status(200).json({ products: [], totalAvailableProducts: 0 });
       }
     }
+
+
 
     if (search) {
       filter.name = { $regex: new RegExp(search, "i") };
@@ -32,11 +44,11 @@ const getProducts = async (req, res) => {
       };
     }
 
-        // Boolean filters for special product types
+    // Boolean filters for special product types
     if (isLatestProduct === 'true') {
       filter.isLatestProduct = true;
     }
-    
+
     if (isOfferProduct === 'true') {
       filter.isOfferProduct = true;
     }
