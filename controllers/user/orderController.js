@@ -141,9 +141,9 @@ const createOrder = async (req, res) => {
     }
 
     // Generate PDF invoice
-    const pdfPath = await generateInvoice(order, user);
+    // const pdfPath = await generateInvoice(order, user);
 
-    const pdfUrl = await uploadToR2(pdfPath, `invoice_${order._id}.pdf`);
+    // const pdfUrl = await uploadToR2(pdfPath, `invoice_${order._id}.pdf`);
 
     // await sendWhatsAppInvoice(user.mobile, pdfUrl, order);
 
@@ -158,8 +158,8 @@ const createOrder = async (req, res) => {
         console.log("pdfBuffer", pdfBuffer)
 
         // Email with invoice PDF
-        sendOrderDetailsMail(user.email, order2, pdfUrl);
-        sendOrderDetailsMail(process.env.ADMINMAIL, order2, pdfUrl);
+        // sendOrderDetailsMail(user.email, order2, pdfUrl);
+        // sendOrderDetailsMail(process.env.ADMINMAIL, order2, pdfUrl);
 
       } catch (err) {
         console.log("Error while sending invoice", err);

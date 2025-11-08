@@ -3,6 +3,67 @@ const Product = require("../../model/productModel");
 const mongoose = require("mongoose");
 
 // Getting all products to list on admin dashboard
+// const getProducts = async (req, res) => {
+//   try {
+//     const {
+//       status,
+//       search,
+//       page = 1,
+//       limit = 10,
+//       startingDate,
+//       endingDate,
+//       category
+//     } = req.query;
+
+//     let filter = {
+//       isActive: true,
+//     };
+
+//     if (status) {
+//       filter.status = status;
+//     }
+
+//     if (category) {
+//       filter.category = category;
+//     }
+
+
+//     if (search) {
+//       filter.name = { $regex: new RegExp(search, "i") };
+//     }
+//     const skip = (page - 1) * limit;
+
+//     // Date
+//     if (startingDate) {
+//       const date = new Date(startingDate);
+//       filter.createdAt = { $gte: date };
+//     }
+//     if (endingDate) {
+//       const date = new Date(endingDate);
+//       filter.createdAt = { ...filter.createdAt, $lte: date };
+//     }
+
+//     const products = await Product.find(filter, {
+//       attributes: 0,
+//       moreImageURL: 0,
+//     })
+//       .sort({ category: 1, createdAt: -1 }) // Group by category first, then sort newest inside
+//       .skip(skip)
+//       .limit(limit)
+//       .populate("category", { name: 1 });
+
+
+//     const totalAvailableProducts = await Product.countDocuments(filter);
+
+//     res.status(200).json({ products, totalAvailableProducts });
+//   } catch (error) {
+//     res.status(400).json({ error: error.message });
+//   }
+// };
+
+
+
+
 const getProducts = async (req, res) => {
   try {
     const {
@@ -12,28 +73,26 @@ const getProducts = async (req, res) => {
       limit = 10,
       startingDate,
       endingDate,
-      category
+      category,
     } = req.query;
 
-    let filter = {
-      isActive: true,
-    };
-
-    if (status) {
-      filter.status = status;
-    }
-
-    if (category) {
-      filter.category = category;
-    }
-
-
-    if (search) {
-      filter.name = { $regex: new RegExp(search, "i") };
-    }
     const skip = (page - 1) * limit;
+    let filter = { isActive: true };
 
-    // Date
+    if (status) filter.status = status;
+
+    // 🧠 Fix: convert category to ObjectId
+    if (category) {
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        filter.category = new mongoose.Types.ObjectId(category);
+      } else {
+        return res.status(400).json({ error: "Invalid category ID" });
+      }
+    }
+
+    if (search) filter.name = { $regex: new RegExp(search, "i") };
+
+    // Date filter
     if (startingDate) {
       const date = new Date(startingDate);
       filter.createdAt = { $gte: date };
@@ -43,23 +102,45 @@ const getProducts = async (req, res) => {
       filter.createdAt = { ...filter.createdAt, $lte: date };
     }
 
-    const products = await Product.find(filter, {
-      attributes: 0,
-      moreImageURL: 0,
-    })
-      .sort({ category: 1, createdAt: -1 }) // Group by category first, then sort newest inside
-      .skip(skip)
-      .limit(limit)
-      .populate("category", { name: 1 });
-
+    // Aggregation pipeline
+    const products = await Product.aggregate([
+      { $match: filter },
+      {
+        $lookup: {
+          from: "categories", // collection name
+          localField: "category",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      { $unwind: "$category" },
+      {
+        $sort: {
+          "category.order": 1,
+          createdAt: -1,
+        },
+      },
+      {
+        $project: {
+          attributes: 0,
+          moreImageURL: 0,
+        },
+      },
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+    ]);
 
     const totalAvailableProducts = await Product.countDocuments(filter);
 
-    res.status(200).json({ products, totalAvailableProducts });
+    res.status(200).json({
+      products,
+      totalAvailableProducts,
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // Get single Product
 const getProduct = async (req, res) => {

@@ -11,6 +11,10 @@ const CategorySchema = new Schema(
     imgURL: {
       type: String,
     },
+    order: {
+      type: Number,
+      default: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,
